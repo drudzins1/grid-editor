@@ -13,14 +13,33 @@ interface ExportHtmlModalProps {
 export function ExportHtmlModal({ blocks, canvasSettings, onClose }: ExportHtmlModalProps) {
   const [tab, setTab] = useState<"preview" | "source">("preview");
   const [copied, setCopied] = useState(false);
+  const sourceRef = React.useRef<HTMLElement>(null);
 
-  const html = useMemo(
+  const rawHtml = useMemo(
     () => blocksToEmailHtml(blocks, canvasSettings),
     [blocks, canvasSettings]
   );
 
+  // For copy/source: replace massive base64 data URLs with a placeholder
+  const html = useMemo(
+    () => rawHtml.replace(/data:image\/[^"]+/g, "https://placehold.co/600x400/e2e8f0/94a3b8?text=Replace+With+Hosted+Image"),
+    [rawHtml]
+  );
+
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(html);
+    const text = sourceRef.current?.textContent ?? html;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -112,7 +131,7 @@ export function ExportHtmlModal({ blocks, canvasSettings, onClose }: ExportHtmlM
           {tab === "preview" ? (
             <div className="bg-[#f5f5f7] rounded-xl p-6 flex justify-center h-full">
               <iframe
-                srcDoc={html}
+                srcDoc={rawHtml}
                 title="Email preview"
                 className="bg-white shadow-sm border border-gray-200 rounded-lg"
                 style={{ width: 740, height: "100%", minHeight: 600, border: "none" }}
@@ -120,8 +139,8 @@ export function ExportHtmlModal({ blocks, canvasSettings, onClose }: ExportHtmlM
             </div>
           ) : (
             <div className="relative">
-              <pre className="bg-gray-900 text-gray-100 rounded-xl p-5 text-[12px] leading-relaxed overflow-auto max-h-[60vh] font-mono">
-                <code>{html}</code>
+              <pre className="bg-gray-900 text-gray-100 rounded-xl p-5 text-[12px] leading-relaxed overflow-auto max-h-[60vh] font-mono select-text cursor-text">
+                <code ref={sourceRef} className="select-text">{html}</code>
               </pre>
             </div>
           )}

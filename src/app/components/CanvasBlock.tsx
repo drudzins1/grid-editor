@@ -126,6 +126,15 @@ export function CanvasBlock({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const headingRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const pendingTextRef = useRef<string | null>(null);
+
+  // Commit any pending text edits when editing ends (covers unmount, deselect, etc.)
+  useEffect(() => {
+    if (!editing && pendingTextRef.current !== null) {
+      onUpdateBlock?.(block.id, { textBody: pendingTextRef.current });
+      pendingTextRef.current = null;
+    }
+  }, [editing, block.id, onUpdateBlock]);
 
   const style: React.CSSProperties = {
     position: "absolute",
@@ -350,11 +359,19 @@ export function CanvasBlock({
               suppressContentEditableWarning
               className="leading-relaxed outline-none cursor-text"
               style={textStyles}
+              onInput={(e) => {
+                pendingTextRef.current = e.currentTarget.textContent || "";
+              }}
               onBlur={(e) => {
-                onUpdateBlock?.(block.id, { textBody: e.currentTarget.textContent || "" });
+                const text = e.currentTarget.textContent || "";
+                pendingTextRef.current = null;
+                onUpdateBlock?.(block.id, { textBody: text });
               }}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
+                  const text = e.currentTarget.textContent || "";
+                  pendingTextRef.current = null;
+                  onUpdateBlock?.(block.id, { textBody: text });
                   onEditEnd?.();
                 }
                 e.stopPropagation();

@@ -199,6 +199,7 @@ function renderBlockContent(block: PlacedBlock): string {
 }
 
 function renderSectionInner(section: PlacedBlock[]): string {
+  const sectionStart = Math.min(...section.map((b) => b.row));
   const slots = findColumnSlots(section);
   const cells: string[] = [];
   let cursor = 0;
@@ -211,23 +212,32 @@ function renderSectionInner(section: PlacedBlock[]): string {
 
     const cellW = slot.spanX * COL_W;
     const sortedBlocks = [...slot.blocks].sort((a, b) => a.row - b.row);
-    const vAlign = sortedBlocks[0].verticalAlign ?? "top";
 
-    if (sortedBlocks.length === 1) {
+    // Build inner rows with spacers for vertical positioning
+    const innerRows: string[] = [];
+    let rowCursor = sectionStart;
+
+    for (const block of sortedBlocks) {
+      if (block.row > rowCursor) {
+        const gapH = (block.row - rowCursor) * COL_W;
+        innerRows.push(`<tr><td style="height: ${px(gapH)}; font-size: 0; line-height: 0;">&nbsp;</td></tr>`);
+      }
+      const blockH = block.spanY * COL_W;
+      const bg = block.bgColor ? ` background-color: ${block.bgColor};` : "";
+      innerRows.push(`<tr><td style="height: ${px(blockH)};${bg}">${renderBlockContent(block)}</td></tr>`);
+      rowCursor = block.row + block.spanY;
+    }
+
+    if (sortedBlocks.length === 1 && sortedBlocks[0].row === sectionStart) {
       const block = sortedBlocks[0];
       const blockH = block.spanY * COL_W;
       const bg = block.bgColor ? ` background-color: ${block.bgColor};` : "";
+      const vAlign = block.verticalAlign ?? "top";
       cells.push(`<td width="${Math.round(cellW)}" valign="${vAlign}" style="width: ${px(cellW)}; height: ${px(blockH)};${bg}">${renderBlockContent(block)}</td>`);
     } else {
-      const innerRows = sortedBlocks.map((block) => {
-        const blockH = block.spanY * COL_W;
-        const bg = block.bgColor ? ` background-color: ${block.bgColor};` : "";
-        return `<tr><td style="height: ${px(blockH)};${bg}">${renderBlockContent(block)}</td></tr>`;
-      }).join("\n");
-
-      cells.push(`<td width="${Math.round(cellW)}" valign="${vAlign}" style="width: ${px(cellW)}; padding: 0;">
+      cells.push(`<td width="${Math.round(cellW)}" valign="top" style="width: ${px(cellW)}; padding: 0;">
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="width: 100%;">
-  ${innerRows}
+  ${innerRows.join("\n")}
   </table>
 </td>`);
     }
