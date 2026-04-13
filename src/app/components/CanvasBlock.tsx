@@ -103,7 +103,7 @@ type ResizeEdge = "e" | "s" | "se" | "w" | "n" | "nw" | "ne" | "sw";
 interface CanvasBlockProps {
   block: PlacedBlock;
   selected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, shiftKey?: boolean) => void;
   onMoveStart: (id: string, e: React.MouseEvent) => void;
   onResizeStart: (id: string, edge: ResizeEdge, e: React.MouseEvent) => void;
   onUpdateBlock?: (id: string, updates: Partial<PlacedBlock>) => void;
@@ -153,8 +153,10 @@ export function CanvasBlock({
         return;
       }
       e.stopPropagation();
-      onSelect(block.id);
-      onMoveStart(block.id, e);
+      onSelect(block.id, e.shiftKey);
+      if (!e.shiftKey) {
+        onMoveStart(block.id, e);
+      }
     },
     [block.id, onSelect, onMoveStart, editing, block.type]
   );

@@ -8,6 +8,8 @@ import { EditorHeader } from "./components/EditorHeader";
 import { PrepareToSend } from "./components/PrepareToSend";
 import { ExportHtmlModal } from "./components/ExportHtmlModal";
 import { resolveCollisions } from "./utils/resolveCollisions";
+import { LeftPanel, type SavedBlockGroup } from "./components/LeftPanel";
+import { SaveBlocksModal } from "./components/SaveBlocksModal";
 
 const CANVAS_W = 720;
 const COLS = 24;
@@ -90,12 +92,15 @@ function describeChange(prev: PlacedBlock[], next: PlacedBlock[]): string {
 
 export default function App() {
   const [blocks, setBlocksRaw] = useState<PlacedBlock[]>(initialBlocks);
-  const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
+  const [selectedBlocks, setSelectedBlocks] = useState<Set<string>>(new Set());
+  const [lastSelectedBlock, setLastSelectedBlock] = useState<string | null>(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const [canvasSelected, setCanvasSelected] = useState(false);
   const [canvasSettings, setCanvasSettings] = useState<CanvasSettings>(defaultCanvasSettings);
   const [editingBlock, setEditingBlock] = useState<string | null>(null);
   const [showPrepareToSend, setShowPrepareToSend] = useState(false);
   const [showExportHtml, setShowExportHtml] = useState(false);
+  const [savedGroups, setSavedGroups] = useState<SavedBlockGroup[]>([]);
   const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const [highlight, setHighlight] = useState<{
     col: number; row: number; spanX: number; spanY: number;
@@ -110,6 +115,7 @@ export default function App() {
   const historyRef = useRef<PlacedBlock[][]>([initialBlocks]);
   const historyIndexRef = useRef(0);
   const isDraggingRef = useRef(false);
+  const justFinishedDragRef = useRef(false);
 
   const pushHistory = useCallback((newBlocks: PlacedBlock[]) => {
     const idx = historyIndexRef.current;
@@ -266,7 +272,10 @@ export default function App() {
       if (!block || !canvasRef.current) return;
       isDraggingRef.current = true;
       setDragMode("move");
-      setSelectedBlock(id);
+      if (!selectedBlocks.has(id)) {
+        setSelectedBlocks(new Set([id]));
+        setLastSelectedBlock(id);
+      }
       dragRef.current = {
         mode: "move",
         blockId: id,
@@ -348,8 +357,9 @@ export default function App() {
 
     const handleMouseUp = () => {
       if (dragRef.current) {
-        // Snapshot final state for undo history
         isDraggingRef.current = false;
+        justFinishedDragRef.current = true;
+        requestAnimationFrame(() => { justFinishedDragRef.current = false; });
         setBlocksRaw((current) => {
           pushHistory(current);
           return current;
@@ -368,18 +378,33 @@ export default function App() {
     };
   }, []);
 
-  // Deselect on canvas click
+  // Deselect on canvas click (skip if a drag/resize just ended)
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    if (justFinishedDragRef.current) return;
     if (e.target === e.currentTarget) {
-      setSelectedBlock(null);
+      setSelectedBlocks(new Set());
+      setLastSelectedBlock(null);
       setEditingBlock(null);
       setCanvasSelected(true);
     }
   }, []);
 
-  // Handle block selection (clears editing if selecting a different block)
-  const handleSelectBlock = useCallback((id: string) => {
-    setSelectedBlock(id);
+  // Handle block selection — shift+click adds to selection
+  const handleSelectBlock = useCallback((id: string, shiftKey?: boolean) => {
+    if (shiftKey) {
+      setSelectedBlocks((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+    } else {
+      setSelectedBlocks(new Set([id]));
+    }
+    setLastSelectedBlock(id);
     setCanvasSelected(false);
     if (editingBlock && editingBlock !== id) {
       setEditingBlock(null);
@@ -397,7 +422,7 @@ export default function App() {
 
   const handleDeleteBlock = useCallback((id: string) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
-    setSelectedBlock(null);
+    setSelectedBlocks((prev) => { const next = new Set(prev); next.delete(id); return next; });
     setEditingBlock(null);
   }, []);
 
@@ -425,7 +450,8 @@ export default function App() {
   const handleRevertToSave = useCallback((entry: SaveEntry) => {
     setBlocksRaw(entry.blocks);
     pushHistory(entry.blocks);
-    setSelectedBlock(null);
+    setSelectedBlocks(new Set());
+    setLastSelectedBlock(null);
     setEditingBlock(null);
     forceRender((n) => n + 1);
   }, [pushHistory]);
@@ -445,17 +471,19 @@ export default function App() {
   const canvasHeight = effectiveGridRows * COL_W;
   const showGrid = dragMode === "move" || dragMode === "resize" || toolbarDragType !== null;
 
-  const selectedBlockData = selectedBlock
-    ? blocks.find((b) => b.id === selectedBlock) ?? null
+  const selectedBlockData = lastSelectedBlock && selectedBlocks.has(lastSelectedBlock)
+    ? blocks.find((b) => b.id === lastSelectedBlock) ?? null
     : null;
+  const hasSelection = selectedBlocks.size > 0;
 
   return (
     <div
       className="min-h-screen bg-[#f5f5f7] flex flex-col items-center overflow-auto select-none"
       onClick={(e) => {
-        // Click on outer background deselects everything
-        if (e.target === e.currentTarget) {
-          setSelectedBlock(null);
+        // Click on outer background deselects everything (skip if drag just ended)
+        if (e.target === e.currentTarget && !justFinishedDragRef.current) {
+          setSelectedBlocks(new Set());
+          setLastSelectedBlock(null);
           setCanvasSelected(false);
           setEditingBlock(null);
         }
@@ -500,7 +528,7 @@ export default function App() {
 
           <div
             ref={canvasRef}
-            className={`relative shadow-[0_1px_3px_rgba(0,0,0,0.06),0_8px_24px_rgba(0,0,0,0.04)] ${canvasSelected && !selectedBlockData ? "ring-2 ring-blue-400" : ""}`}
+            className={`relative shadow-[0_1px_3px_rgba(0,0,0,0.06),0_8px_24px_rgba(0,0,0,0.04)] ${canvasSelected && !hasSelection ? "ring-2 ring-blue-400" : ""}`}
             style={{
               width: CANVAS_W,
               minHeight: canvasHeight,
@@ -520,7 +548,7 @@ export default function App() {
               <CanvasBlock
                 key={b.id}
                 block={b}
-                selected={selectedBlock === b.id}
+                selected={selectedBlocks.has(b.id)}
                 onSelect={handleSelectBlock}
                 onMoveStart={handleMoveStart}
                 onResizeStart={handleResizeStart}
@@ -549,6 +577,7 @@ export default function App() {
                   <BlockActions
                     onDuplicate={() => handleDuplicateBlock(selectedBlockData.id)}
                     onDelete={() => handleDeleteBlock(selectedBlockData.id)}
+                    onSave={() => setShowSaveModal(true)}
                   />
                 </div>
               );
@@ -584,6 +613,36 @@ export default function App() {
           onClose={() => setShowExportHtml(false)}
         />
       )}
+
+      {/* Save blocks modal */}
+      {showSaveModal && (
+        <SaveBlocksModal
+          blockCount={selectedBlocks.size}
+          onClose={() => setShowSaveModal(false)}
+          onSave={(name) => {
+            const selectedArr = blocks.filter((b) => selectedBlocks.has(b.id));
+            if (selectedArr.length === 0) return;
+            const minCol = Math.min(...selectedArr.map((b) => b.col));
+            const minRow = Math.min(...selectedArr.map((b) => b.row));
+            const normalized = selectedArr.map((b) => ({
+              ...b,
+              col: b.col - minCol,
+              row: b.row - minRow,
+            }));
+            setSavedGroups((prev) => [
+              { id: Date.now().toString(), name, blocks: normalized, createdAt: Date.now() },
+              ...prev,
+            ]);
+            setShowSaveModal(false);
+          }}
+        />
+      )}
+
+      {/* Left Panel — Saved Content & Templates */}
+      <LeftPanel
+        savedGroups={savedGroups}
+        onDeleteGroup={(id) => setSavedGroups((prev) => prev.filter((g) => g.id !== id))}
+      />
 
       {/* Style Panel — block or canvas */}
       {selectedBlockData && !showPrepareToSend && (
