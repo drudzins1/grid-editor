@@ -32,11 +32,44 @@ const defaults: Record<BlockType, { spanX: number; spanY: number }> = {
   product: { spanX: 12, spanY: 8 },
 };
 
-// Some starter blocks so the canvas isn't empty
 const initialBlocks: PlacedBlock[] = [
-  { id: "1", type: "image", col: 0, row: 0, spanX: 14, spanY: 8 },
-  { id: "2", type: "text", col: 15, row: 0, spanX: 9, spanY: 5 },
-  { id: "3", type: "button", col: 15, row: 5, spanX: 9, spanY: 3 },
+  // Hero image
+  { id: "1", type: "image", col: 0, row: 0, spanX: 24, spanY: 8 },
+  // Headline
+  { id: "2", type: "text", col: 0, row: 9, spanX: 24, spanY: 3,
+    textBody: "Your Weekly Digest",
+    fontSize: 28, fontWeight: "bold", textAlign: "center", textColor: "#111827" },
+  // Subheading
+  { id: "3", type: "text", col: 2, row: 12, spanX: 20, spanY: 2,
+    textBody: "Here's what happened this week — handpicked updates, tips, and stories just for you.",
+    fontSize: 14, textAlign: "center", textColor: "#6b7280" },
+  // Separator
+  { id: "4", type: "separator", col: 4, row: 15, spanX: 16, spanY: 1,
+    sepColor: "#e5e7eb", sepThickness: 1, sepMargin: 0 },
+  // Feature image left
+  { id: "5", type: "image", col: 0, row: 17, spanX: 12, spanY: 8 },
+  // Feature text right
+  { id: "6", type: "text", col: 13, row: 17, spanX: 11, spanY: 4,
+    textBody: "Introducing Dark Mode",
+    fontSize: 18, fontWeight: "bold", textColor: "#111827" },
+  { id: "7", type: "text", col: 13, row: 21, spanX: 11, spanY: 3,
+    textBody: "A fresh new look that's easier on the eyes. Toggle it on in your settings to try it out.",
+    fontSize: 13, textColor: "#6b7280" },
+  // CTA button
+  { id: "8", type: "button", col: 6, row: 27, spanX: 12, spanY: 3,
+    buttonLabel: "Read More", btnColor: "#2563eb", btnTextColor: "#ffffff",
+    btnRadius: 8, btnAlign: "center" },
+  // Footer separator
+  { id: "9", type: "separator", col: 0, row: 31, spanX: 24, spanY: 1,
+    sepColor: "#e5e7eb", sepThickness: 1, sepMargin: 0 },
+  // Footer text
+  { id: "10", type: "text", col: 0, row: 33, spanX: 24, spanY: 2,
+    textBody: "You're receiving this because you signed up at ourcompany.com. Unsubscribe anytime.",
+    fontSize: 11, textAlign: "center", textColor: "#9ca3b8" },
+  // Social links
+  { id: "11", type: "social", col: 7, row: 35, spanX: 10, spanY: 2,
+    socialPlatforms: ["facebook", "instagram", "x", "linkedin"],
+    socialColor: "#9ca3b8", socialSize: 20, socialAlign: "center" },
 ];
 
 type DragMode = null | "toolbar" | "move" | "resize";
@@ -195,6 +228,7 @@ export default function App() {
   // Drag state
   const [dragMode, setDragMode] = useState<DragMode>(null);
   const [toolbarDragType, setToolbarDragType] = useState<BlockType | null>(null);
+  const [dragSavedGroup, setDragSavedGroup] = useState<SavedBlockGroup | null>(null);
 
   // ─── Canvas vertical resize ─────────────────────────────
   const [gridRows, setGridRows] = useState(DEFAULT_GRID_ROWS);
@@ -238,31 +272,62 @@ export default function App() {
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      if (!canvasRef.current || !toolbarDragType) return;
+      if (!canvasRef.current) return;
       const rect = canvasRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      const size = defaults[toolbarDragType];
-      const col = clamp(Math.round(x / COL_W - size.spanX / 2), 0, COLS - size.spanX);
-      const row = Math.max(0, Math.round(y / COL_W - size.spanY / 2));
-      setHighlight({ col, row, ...size });
+
+      if (toolbarDragType) {
+        const size = defaults[toolbarDragType];
+        const col = clamp(Math.round(x / COL_W - size.spanX / 2), 0, COLS - size.spanX);
+        const row = Math.max(0, Math.round(y / COL_W - size.spanY / 2));
+        setHighlight({ col, row, ...size });
+      } else if (dragSavedGroup) {
+        const groupBlocks = dragSavedGroup.blocks;
+        const maxSpanX = Math.max(...groupBlocks.map((b) => b.col + b.spanX));
+        const maxSpanY = Math.max(...groupBlocks.map((b) => b.row + b.spanY));
+        const col = clamp(Math.round(x / COL_W - maxSpanX / 2), 0, COLS - maxSpanX);
+        const row = Math.max(0, Math.round(y / COL_W - maxSpanY / 2));
+        setHighlight({ col, row, spanX: maxSpanX, spanY: maxSpanY });
+      }
     },
-    [toolbarDragType]
+    [toolbarDragType, dragSavedGroup]
   );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      if (!highlight || !toolbarDragType) return;
-      const newId = Date.now().toString();
-      setBlocks((prev) => {
-        const next = [...prev, { id: newId, type: toolbarDragType, ...highlight }];
-        return resolveCollisions(next, newId);
-      });
+      if (!highlight) return;
+
+      if (toolbarDragType) {
+        const newId = Date.now().toString();
+        setBlocks((prev) => {
+          const next = [...prev, { id: newId, type: toolbarDragType, ...highlight }];
+          return resolveCollisions(next, newId);
+        });
+        setToolbarDragType(null);
+      } else if (dragSavedGroup) {
+        const baseCol = highlight.col;
+        const baseRow = highlight.row;
+        const newBlocks = dragSavedGroup.blocks.map((b) => ({
+          ...b,
+          id: `${Date.now()}-${b.id}`,
+          col: b.col + baseCol,
+          row: b.row + baseRow,
+        }));
+        setBlocks((prev) => {
+          let next = [...prev, ...newBlocks];
+          for (const nb of newBlocks) {
+            next = resolveCollisions(next, nb.id);
+          }
+          return next;
+        });
+        setDragSavedGroup(null);
+      }
+
       setHighlight(null);
-      setToolbarDragType(null);
     },
-    [highlight, toolbarDragType]
+    [highlight, toolbarDragType, dragSavedGroup]
   );
 
   // ─── Move & Resize (pointer-based) ─────────────────────
@@ -469,7 +534,7 @@ export default function App() {
   }, [autoRows, gridRows]);
 
   const canvasHeight = effectiveGridRows * COL_W;
-  const showGrid = dragMode === "move" || dragMode === "resize" || toolbarDragType !== null;
+  const showGrid = dragMode === "move" || dragMode === "resize" || toolbarDragType !== null || dragSavedGroup !== null;
 
   const selectedBlockData = lastSelectedBlock && selectedBlocks.has(lastSelectedBlock)
     ? blocks.find((b) => b.id === lastSelectedBlock) ?? null
@@ -642,6 +707,8 @@ export default function App() {
       <LeftPanel
         savedGroups={savedGroups}
         onDeleteGroup={(id) => setSavedGroups((prev) => prev.filter((g) => g.id !== id))}
+        onDragGroupStart={(group) => setDragSavedGroup(group)}
+        onDragGroupEnd={() => { setDragSavedGroup(null); setHighlight(null); }}
       />
 
       {/* Style Panel — block or canvas */}

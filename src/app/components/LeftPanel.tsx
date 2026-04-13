@@ -12,6 +12,8 @@ export interface SavedBlockGroup {
 interface LeftPanelProps {
   savedGroups: SavedBlockGroup[];
   onDeleteGroup?: (id: string) => void;
+  onDragGroupStart?: (group: SavedBlockGroup) => void;
+  onDragGroupEnd?: () => void;
 }
 
 type ActiveTab = null | "saved" | "templates";
@@ -23,7 +25,7 @@ const MOCK_TEMPLATES = [
   { id: "t4", name: "Product Feature", description: "Product image with description and price" },
 ];
 
-export function LeftPanel({ savedGroups, onDeleteGroup }: LeftPanelProps) {
+export function LeftPanel({ savedGroups, onDeleteGroup, onDragGroupStart, onDragGroupEnd }: LeftPanelProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>(null);
   const [hoveredIcon, setHoveredIcon] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -109,7 +111,7 @@ export function LeftPanel({ savedGroups, onDeleteGroup }: LeftPanelProps) {
           {/* Panel body */}
           <div className="flex-1 overflow-y-auto p-3">
             {activeTab === "saved" ? (
-              <SavedContentList groups={savedGroups} onDelete={onDeleteGroup} />
+              <SavedContentList groups={savedGroups} onDelete={onDeleteGroup} onDragStart={onDragGroupStart} onDragEnd={onDragGroupEnd} />
             ) : (
               <TemplatesList />
             )}
@@ -130,9 +132,13 @@ export function LeftPanel({ savedGroups, onDeleteGroup }: LeftPanelProps) {
 function SavedContentList({
   groups,
   onDelete,
+  onDragStart,
+  onDragEnd,
 }: {
   groups: SavedBlockGroup[];
   onDelete?: (id: string) => void;
+  onDragStart?: (group: SavedBlockGroup) => void;
+  onDragEnd?: () => void;
 }) {
   if (groups.length === 0) {
     return (
@@ -153,7 +159,13 @@ function SavedContentList({
       {groups.map((group) => (
         <div
           key={group.id}
-          className="group bg-gray-50 border border-gray-100 rounded-lg p-3 hover:border-gray-200 transition-colors cursor-pointer"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = "copy";
+            onDragStart?.(group);
+          }}
+          onDragEnd={() => onDragEnd?.()}
+          className="group bg-gray-50 border border-gray-100 rounded-lg p-3 hover:border-gray-200 transition-colors cursor-grab active:cursor-grabbing"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
