@@ -333,6 +333,31 @@ export function blocksToEmailHtml(
     ? `border: ${settings.borderWidth}px solid ${settings.borderColor ?? "#e5e7eb"};`
     : "";
 
+  // Canvas-level background image. CSS works in modern clients; Outlook (Word
+  // engine) ignores background-image, so we wrap the container in the bulletproof
+  // VML pattern (v:rect + v:fill + v:textbox). The background-color always shows
+  // as a fallback when the image is blocked or unsupported.
+  const tile = settings.bgSize === "tile";
+  const bgImageCss = settings.bgImage
+    ? ` background-image: url('${escapeHtml(settings.bgImage)}'); background-position: center; background-repeat: ${tile ? "repeat" : "no-repeat"}; background-size: ${tile ? "auto" : settings.bgSize ?? "cover"};`
+    : "";
+
+  const totalRows = blocks.length ? Math.max(...blocks.map((b) => b.row + b.spanY)) : 0;
+  const canvasHeight = Math.round(totalRows * COL_W);
+  const vmlOpen = settings.bgImage
+    ? `<!--[if mso]>
+<v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${CANVAS_W}px;height:${canvasHeight}px;">
+<v:fill type="${tile ? "tile" : "frame"}" src="${escapeHtml(settings.bgImage)}" color="${settings.bgColor}" />
+<v:textbox inset="0,0,0,0">
+<![endif]-->`
+    : "";
+  const vmlClose = settings.bgImage
+    ? `<!--[if mso]>
+</v:textbox>
+</v:rect>
+<![endif]-->`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -361,9 +386,11 @@ export function blocksToEmailHtml(
 <body style="margin: 0; padding: 0; background-color: #f5f5f7;">
 <center style="width: 100%; background-color: #f5f5f7; padding: 24px 0;">
 <!--[if mso]><table role="presentation" cellspacing="0" cellpadding="0" border="0" width="${CANVAS_W}" align="center"><tr><td><![endif]-->
-<table class="email-container" role="presentation" cellspacing="0" cellpadding="0" border="0" width="${CANVAS_W}" align="center" style="margin: 0 auto; max-width: ${CANVAS_W}px; background-color: ${settings.bgColor}; ${borderCss}">
+${vmlOpen}
+<table class="email-container" role="presentation" cellspacing="0" cellpadding="0" border="0" width="${CANVAS_W}" align="center" style="margin: 0 auto; max-width: ${CANVAS_W}px; background-color: ${settings.bgColor};${bgImageCss} ${borderCss}">
 ${rows}
 </table>
+${vmlClose}
 <!--[if mso]></td></tr></table><![endif]-->
 </center>
 </body>

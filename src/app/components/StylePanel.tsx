@@ -23,7 +23,7 @@ const COLOR_PRESETS = [
   "#2563eb", "#3b82f6", "#0ea5e9", "#06b6d4",
   "#10b981", "#22c55e", "#eab308", "#f59e0b",
   "#f97316", "#ef4444", "#ec4899", "#a855f7",
-  "#6366f1", "#1e293b", "#475569", "#94a3b8",
+  "#6366f1", "#1e293b", "#94a3b8",
 ];
 
 const RADIUS_OPTIONS = [
@@ -86,6 +86,7 @@ function ColorGrid({
   value: string;
   onChange: (color: string) => void;
 }) {
+  const isCustom = !COLOR_PRESETS.some((c) => c.toLowerCase() === value?.toLowerCase());
   return (
     <div className="grid grid-cols-8 gap-1">
       {COLOR_PRESETS.map((c) => (
@@ -98,6 +99,24 @@ function ColorGrid({
           style={{ backgroundColor: c }}
         />
       ))}
+      <label
+        title="Custom color"
+        className={`relative w-5 h-5 rounded-full cursor-pointer overflow-hidden transition-transform hover:scale-110 ${
+          isCustom ? "ring-2 ring-offset-1 ring-blue-500" : ""
+        }`}
+        style={{
+          background: isCustom
+            ? value
+            : "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)",
+        }}
+      >
+        <input
+          type="color"
+          value={value || "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
+      </label>
     </div>
   );
 }
@@ -164,64 +183,11 @@ function AlignControl({
 export function StylePanel(props: StylePanelProps) {
   // Canvas mode
   if (props.canvasSettings) {
-    const { canvasSettings, onUpdateCanvas } = props;
     return (
-      <PanelWrapper label="Canvas Style">
-        <Section label="Background Color">
-          <ColorGrid
-            value={canvasSettings.bgColor}
-            onChange={(c) => onUpdateCanvas({ ...canvasSettings, bgColor: c })}
-          />
-          <div className="flex items-center gap-2 mt-2">
-            <input
-              type="color"
-              value={canvasSettings.bgColor}
-              onChange={(e) => onUpdateCanvas({ ...canvasSettings, bgColor: e.target.value })}
-              className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0"
-            />
-            <span className="text-[12px] text-gray-400 uppercase tracking-wider">
-              {canvasSettings.bgColor}
-            </span>
-            {canvasSettings.bgColor !== "#ffffff" && (
-              <button
-                onClick={() => onUpdateCanvas({ ...canvasSettings, bgColor: "#ffffff" })}
-                className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer ml-auto"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-        </Section>
-        <Section label="Padding">
-          <SegmentedControl
-            options={PADDING_OPTIONS}
-            value={canvasSettings.padding}
-            onChange={(v) => onUpdateCanvas({ ...canvasSettings, padding: v })}
-          />
-        </Section>
-        <Section label="Border Width">
-          <SegmentedControl
-            options={BORDER_WIDTH_OPTIONS}
-            value={canvasSettings.borderWidth}
-            onChange={(v) => onUpdateCanvas({ ...canvasSettings, borderWidth: v })}
-          />
-        </Section>
-        {canvasSettings.borderWidth > 0 && (
-          <Section label="Border Color">
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={canvasSettings.borderColor ?? "#e5e7eb"}
-                onChange={(e) => onUpdateCanvas({ ...canvasSettings, borderColor: e.target.value })}
-                className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0"
-              />
-              <span className="text-[12px] text-gray-400 uppercase tracking-wider">
-                {canvasSettings.borderColor ?? "#e5e7eb"}
-              </span>
-            </div>
-          </Section>
-        )}
-      </PanelWrapper>
+      <CanvasStyleConfig
+        canvasSettings={props.canvasSettings}
+        onUpdateCanvas={props.onUpdateCanvas}
+      />
     );
   }
 
@@ -355,6 +321,149 @@ function PanelWrapper({ label, children }: { label: string; children: React.Reac
       </div>
       {children}
     </div>
+  );
+}
+
+function MoreToggle({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      className="w-full flex items-center justify-between text-[12px] text-gray-500 hover:text-gray-700 cursor-pointer pt-4 pb-2 border-t border-gray-100 mt-1 transition-colors"
+    >
+      <span>Additional options</span>
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 12 12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`transition-transform ${open ? "rotate-180" : ""}`}
+      >
+        <polyline points="3 4.5 6 7.5 9 4.5" />
+      </svg>
+    </button>
+  );
+}
+
+function CanvasStyleConfig({
+  canvasSettings,
+  onUpdateCanvas,
+}: {
+  canvasSettings: CanvasSettings;
+  onUpdateCanvas: (settings: CanvasSettings) => void;
+}) {
+  const [showMore, setShowMore] = useState(false);
+
+  return (
+    <PanelWrapper label="Canvas Style">
+      <Section label="Background Color">
+        <ColorGrid
+          value={canvasSettings.bgColor}
+          onChange={(c) => onUpdateCanvas({ ...canvasSettings, bgColor: c })}
+        />
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            type="color"
+            value={canvasSettings.bgColor}
+            onChange={(e) => onUpdateCanvas({ ...canvasSettings, bgColor: e.target.value })}
+            className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0"
+          />
+          <span className="text-[12px] text-gray-400 uppercase tracking-wider">
+            {canvasSettings.bgColor}
+          </span>
+          {canvasSettings.bgColor !== "#ffffff" && (
+            <button
+              onClick={() => onUpdateCanvas({ ...canvasSettings, bgColor: "#ffffff" })}
+              className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer ml-auto"
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </Section>
+      <Section label="Padding">
+        <SegmentedControl
+          options={PADDING_OPTIONS}
+          value={canvasSettings.padding}
+          onChange={(v) => onUpdateCanvas({ ...canvasSettings, padding: v })}
+        />
+      </Section>
+      <Section label="Border Width">
+        <SegmentedControl
+          options={BORDER_WIDTH_OPTIONS}
+          value={canvasSettings.borderWidth}
+          onChange={(v) => onUpdateCanvas({ ...canvasSettings, borderWidth: v })}
+        />
+      </Section>
+      {canvasSettings.borderWidth > 0 && (
+        <Section label="Border Color">
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={canvasSettings.borderColor ?? "#e5e7eb"}
+              onChange={(e) => onUpdateCanvas({ ...canvasSettings, borderColor: e.target.value })}
+              className="w-6 h-6 rounded cursor-pointer border border-gray-200 p-0"
+            />
+            <span className="text-[12px] text-gray-400 uppercase tracking-wider">
+              {canvasSettings.borderColor ?? "#e5e7eb"}
+            </span>
+          </div>
+        </Section>
+      )}
+
+      <MoreToggle open={showMore} onToggle={() => setShowMore(!showMore)} />
+
+      {showMore && (
+        <div className="mt-2">
+          <Section label="Background Image">
+            <input
+              type="text"
+              value={canvasSettings.bgImage ?? ""}
+              placeholder="Paste image URL…"
+              onChange={(e) =>
+                onUpdateCanvas({ ...canvasSettings, bgImage: e.target.value || undefined })
+              }
+              className="w-full text-[12px] px-2 py-1.5 rounded-md border border-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            />
+            {canvasSettings.bgImage && (
+              <>
+                <div className="mt-2">
+                  <div className="text-[11px] text-gray-400 mb-1">Size</div>
+                  <div className="flex gap-0.5 bg-gray-100 rounded-md p-0.5">
+                    {(["cover", "contain", "tile"] as const).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => onUpdateCanvas({ ...canvasSettings, bgSize: s })}
+                        className={`flex-1 text-[12px] py-1.5 rounded cursor-pointer transition-colors capitalize ${
+                          (canvasSettings.bgSize ?? "cover") === s
+                            ? "bg-white text-gray-800 shadow-sm"
+                            : "text-gray-400 hover:text-gray-600"
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onUpdateCanvas({ ...canvasSettings, bgImage: undefined })}
+                  className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer mt-2"
+                >
+                  Remove image
+                </button>
+                <p className="text-[10px] text-gray-400 leading-snug mt-2">
+                  Note: Outlook shows the image scaled to fill; "Contain" falls back to fill there.
+                  A background color always shows if the image is blocked.
+                </p>
+              </>
+            )}
+          </Section>
+        </div>
+      )}
+    </PanelWrapper>
   );
 }
 
@@ -689,20 +798,10 @@ function ButtonStylePanel({ block, update }: { block: PlacedBlock; update: (upda
         />
       </Section>
       <Section label="Text Color">
-        <div className="flex gap-1">
-          {["#ffffff", "#1e293b", "#f8fafc"].map((c) => (
-            <button
-              key={c}
-              onClick={() => update({ btnTextColor: c })}
-              className={`w-6 h-6 rounded-full cursor-pointer border border-gray-200 transition-transform hover:scale-110 ${
-                (block.btnTextColor ?? "#ffffff") === c
-                  ? "ring-2 ring-offset-1 ring-blue-500"
-                  : ""
-              }`}
-              style={{ backgroundColor: c }}
-            />
-          ))}
-        </div>
+        <ColorGrid
+          value={block.btnTextColor ?? "#ffffff"}
+          onChange={(c) => update({ btnTextColor: c })}
+        />
       </Section>
       <Section label="Corner Radius">
         <SegmentedControl

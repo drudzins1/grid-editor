@@ -77,6 +77,8 @@ type ResizeEdge = "e" | "s" | "se" | "w" | "n" | "nw" | "ne" | "sw";
 
 export interface CanvasSettings {
   bgColor: string;
+  bgImage?: string;
+  bgSize?: "cover" | "contain" | "tile";
   padding: number;
   borderColor?: string;
   borderWidth: number;
@@ -84,6 +86,8 @@ export interface CanvasSettings {
 
 const defaultCanvasSettings: CanvasSettings = {
   bgColor: "#ffffff",
+  bgImage: undefined,
+  bgSize: "cover",
   padding: 0,
   borderColor: undefined,
   borderWidth: 0,
@@ -598,6 +602,14 @@ export default function App() {
               width: CANVAS_W,
               minHeight: canvasHeight,
               backgroundColor: canvasSettings.bgColor,
+              ...(canvasSettings.bgImage
+                ? {
+                    backgroundImage: `url("${canvasSettings.bgImage}")`,
+                    backgroundPosition: "center",
+                    backgroundRepeat: canvasSettings.bgSize === "tile" ? "repeat" : "no-repeat",
+                    backgroundSize: canvasSettings.bgSize === "tile" ? "auto" : canvasSettings.bgSize ?? "cover",
+                  }
+                : {}),
               padding: canvasSettings.padding,
               borderColor: canvasSettings.borderColor ?? "transparent",
               borderWidth: canvasSettings.borderWidth,
