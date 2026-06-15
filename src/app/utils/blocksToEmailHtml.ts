@@ -19,6 +19,49 @@ function px(n: number): string {
   return `${Math.round(n)}px`;
 }
 
+// Mirrors the inline social icons drawn on the canvas (CanvasBlock.tsx) so the
+// exported email preview shows real glyphs instead of plaintext labels.
+// Note: inline SVG renders in the preview and modern webmail/Apple Mail, but is
+// stripped by Gmail and Outlook desktop — hosted PNGs are needed for those.
+function socialIconSvg(platform: string, size: number, color: string, style: string): string {
+  const isFilled = style === "filled";
+  const isOutline = style === "outline";
+  const g = isFilled ? "white" : color; // glyph color
+  const open = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;">`;
+  const filledRect = `<rect width="24" height="24" rx="4" fill="${color}"/>`;
+  const outlineRect = `<rect x="1" y="1" width="22" height="22" rx="4" stroke="${color}" stroke-width="1.5" fill="none"/>`;
+  const frame = (glyph: string) =>
+    isFilled ? filledRect + glyph : isOutline ? outlineRect + glyph : glyph;
+
+  let inner = "";
+  switch (platform) {
+    case "facebook":
+      inner = frame(`<path d="M16.5 12.5h-2.5v7h-3v-7h-2v-2.5h2v-1.5c0-2.21 1.29-3.5 3.5-3.5h2v2.5h-1.5c-.55 0-1 .45-1 1v1.5h2.5l-.5 2.5z" fill="${g}"/>`);
+      break;
+    case "instagram":
+      inner = frame(`<rect x="6" y="6" width="12" height="12" rx="3" stroke="${g}" stroke-width="1.5" fill="none"/><circle cx="12" cy="12" r="2.5" stroke="${g}" stroke-width="1.5" fill="none"/><circle cx="16.5" cy="7.5" r="1" fill="${g}"/>`);
+      break;
+    case "x":
+      inner = frame(`<path d="M16.3 7h1.5l-3.7 4.3L18.4 17h-3.2l-2.6-3.4L9.7 17H8.2l4-4.6L7.8 7h3.3l2.3 3.1L16.3 7zm-.5 9h.8L10.3 8h-.9l5.4 8z" fill="${g}"/>`);
+      break;
+    case "linkedin":
+      inner = frame(`<path d="M8.5 10v7h-2v-7h2zm-1-3.5a1.15 1.15 0 110 2.3 1.15 1.15 0 010-2.3zm3.5 3.5h2v1c.4-.7 1.2-1.2 2.2-1.2 2.2 0 2.8 1.4 2.8 3.3v3.9h-2v-3.5c0-.8-.02-1.9-1.2-1.9-1.2 0-1.3.9-1.3 1.8v3.6h-2.5V10z" fill="${g}"/>`);
+      break;
+    case "youtube": {
+      const play = `<path d="M10 15l4.5-3L10 9v6z" fill="${g}"/>`;
+      const body = (w: string) => `<path d="M19.6 8.3a2 2 0 00-1.4-1.4C16.8 6.5 12 6.5 12 6.5s-4.8 0-6.2.4a2 2 0 00-1.4 1.4C4 9.7 4 12 4 12s0 2.3.4 3.7a2 2 0 001.4 1.4c1.4.4 6.2.4 6.2.4s4.8 0 6.2-.4a2 2 0 001.4-1.4c.4-1.4.4-3.7.4-3.7s0-2.3-.4-3.7z" stroke="${g}" stroke-width="${w}" fill="none"/>`;
+      inner = isFilled ? filledRect + play + body("1.2") : isOutline ? outlineRect + play : body("1.5") + play;
+      break;
+    }
+    case "tiktok":
+      inner = frame(`<path d="M16.5 6.5c-.7-.8-1-1.8-1-2.5h-2.3v10.5a2.2 2.2 0 01-2.2 2.2 2.2 2.2 0 01-2.2-2.2 2.2 2.2 0 012.2-2.2c.2 0 .5 0 .7.1V10c-.2 0-.5-.1-.7-.1a4.5 4.5 0 00-4.5 4.6 4.5 4.5 0 004.5 4.5 4.5 4.5 0 004.5-4.5V10c.8.6 1.8 1 3 1V8.5c-1 0-1.8-.5-2.5-1.2z" fill="${g}" transform="translate(0,1)"/>`);
+      break;
+    default:
+      return "";
+  }
+  return open + inner + "</svg>";
+}
+
 function vOverlaps(a: PlacedBlock, b: PlacedBlock): boolean {
   return a.row < b.row + b.spanY && a.row + a.spanY > b.row;
 }
@@ -171,14 +214,12 @@ function renderBlockContent(block: PlacedBlock): string {
       const color = block.socialColor ?? "#1e293b";
       const size = block.socialSize ?? 24;
       const align = block.socialAlign ?? "center";
-      const labels: Record<string, string> = {
-        facebook: "Facebook", instagram: "Instagram", x: "X",
-        linkedin: "LinkedIn", youtube: "YouTube", tiktok: "TikTok",
-      };
+      const style = block.socialStyle ?? "filled";
+      const known = ["facebook", "instagram", "x", "linkedin", "youtube", "tiktok"];
       const icons = platforms
-        .filter((p) => labels[p])
-        .map((p) => `<a href="#" target="_blank" style="color: ${color}; text-decoration: none; font-size: ${size}px; padding: 0 6px; font-family: Arial, sans-serif;">${labels[p]}</a>`)
-        .join(" ");
+        .filter((p) => known.includes(p))
+        .map((p) => `<a href="#" target="_blank" style="text-decoration: none; display: inline-block; padding: 0 6px; line-height: 0;">${socialIconSvg(p, size, color, style)}</a>`)
+        .join("");
       return `<div style="text-align: ${align}; padding: 8px 0;">${icons}</div>`;
     }
 
