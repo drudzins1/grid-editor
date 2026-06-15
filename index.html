@@ -1,15 +1,69 @@
-
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Grid Editor MAKE</title>
-    </head>
-
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Grid Editor</title>
+    <style>
+      #password-gate {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #0f0f0f;
+        display: flex; align-items: center; justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      #password-gate .box {
+        background: #1a1a1a; border: 1px solid #2a2a2a;
+        border-radius: 12px; padding: 40px; width: 320px; text-align: center;
+      }
+      #password-gate h2 { color: #fff; margin: 0 0 8px; font-size: 18px; font-weight: 600; }
+      #password-gate p { color: #888; margin: 0 0 24px; font-size: 14px; }
+      #password-gate input {
+        width: 100%; box-sizing: border-box;
+        padding: 10px 14px; border-radius: 8px;
+        border: 1px solid #333; background: #111; color: #fff;
+        font-size: 15px; margin-bottom: 12px; outline: none;
+      }
+      #password-gate input:focus { border-color: #555; }
+      #password-gate button {
+        width: 100%; padding: 10px; border-radius: 8px;
+        background: #fff; color: #000; font-size: 15px;
+        font-weight: 600; border: none; cursor: pointer;
+      }
+      #password-gate button:hover { background: #e5e5e5; }
+      #password-gate .error { color: #f87171; font-size: 13px; margin-top: 8px; display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="password-gate">
+      <div class="box">
+        <h2>Protected</h2>
+        <p>Enter the password to view this prototype.</p>
+        <input type="password" id="pw-input" placeholder="Password" autofocus />
+        <button onclick="checkPassword()">Enter</button>
+        <div class="error" id="pw-error">Incorrect password.</div>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script>
+      (function() {
+        if (sessionStorage.getItem('proto_auth') === '1') {
+          document.getElementById('password-gate').style.display = 'none';
+        }
+      })();
+      function checkPassword() {
+        var val = document.getElementById('pw-input').value;
+        if (val === 'Rudzinski2026') {
+          sessionStorage.setItem('proto_auth', '1');
+          document.getElementById('password-gate').style.display = 'none';
+        } else {
+          document.getElementById('pw-error').style.display = 'block';
+        }
+      }
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') checkPassword();
+      });
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
