@@ -574,7 +574,14 @@ export default function App() {
       </div>
 
       {/* Toolbar at top */}
-      <div className="fixed top-[72px] left-1/2 -translate-x-1/2 z-50">
+      <div
+        className="fixed top-[72px] left-1/2 z-50 transition-transform duration-200"
+        style={{
+          transform: showPrepareToSend
+            ? "translateX(calc(-50% - 220px))"
+            : "translateX(-50%)",
+        }}
+      >
         <Toolbar
           onDragStart={(type) => setToolbarDragType(type)}
           onDragEnd={() => {
@@ -587,8 +594,11 @@ export default function App() {
 
       {/* Canvas */}
       <div
-        className="flex justify-center transition-[padding] duration-200"
-        style={{ paddingTop: toolbarExpanded ? 180 : 140 }}
+        className="flex justify-center transition-[padding,transform] duration-200"
+        style={{
+          paddingTop: toolbarExpanded ? 180 : 140,
+          transform: showPrepareToSend ? "translateX(-220px)" : "translateX(0)",
+        }}
       >
         <div className="relative">
           <div className="text-[10px] uppercase tracking-[0.2em] text-gray-300 mb-3 text-center">
