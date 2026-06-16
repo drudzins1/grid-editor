@@ -229,6 +229,17 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleUndo, handleRedo]);
 
+  // Track viewport width so we can slide the canvas clear of side panels
+  // only when there's room on the left.
+  const [viewportW, setViewportW] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1440,
+  );
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   // Drag state
   const [dragMode, setDragMode] = useState<DragMode>(null);
   const [toolbarDragType, setToolbarDragType] = useState<BlockType | null>(null);
@@ -545,6 +556,23 @@ export default function App() {
     : null;
   const hasSelection = selectedBlocks.size > 0;
 
+  // How far to slide the canvas/toolbar left so an open side panel doesn't
+  // overlap them. Prepare-to-send uses a fixed shift; the style panel only
+  // shifts as far as the free space on the left allows (and not at all when
+  // the window is too narrow).
+  const stylePanelOpen =
+    !showPrepareToSend && (selectedBlockData !== null || (canvasSelected && !selectedBlockData));
+  const canvasShift = (() => {
+    if (showPrepareToSend) return 220;
+    if (!stylePanelOpen) return 0;
+    const PANEL_FOOTPRINT = 224 + 16; // panel width + right-4
+    const GAP = 24; // breathing room between canvas and panel
+    const LEFT_MARGIN = 88; // clear the left icon pill (left-4, ~64px)
+    const needed = Math.max(0, CANVAS_W / 2 + PANEL_FOOTPRINT + GAP - viewportW / 2);
+    const room = Math.max(0, (viewportW - CANVAS_W) / 2 - LEFT_MARGIN);
+    return Math.min(needed, room);
+  })();
+
   return (
     <div
       className="min-h-screen bg-[#f5f5f7] flex flex-col items-center overflow-auto select-none"
@@ -577,9 +605,7 @@ export default function App() {
       <div
         className="fixed top-[72px] left-1/2 z-50 transition-transform duration-200"
         style={{
-          transform: showPrepareToSend
-            ? "translateX(calc(-50% - 220px))"
-            : "translateX(-50%)",
+          transform: `translateX(calc(-50% - ${canvasShift}px))`,
         }}
       >
         <Toolbar
@@ -597,7 +623,7 @@ export default function App() {
         className="flex justify-center transition-[padding,transform] duration-200"
         style={{
           paddingTop: toolbarExpanded ? 180 : 140,
-          transform: showPrepareToSend ? "translateX(-220px)" : "translateX(0)",
+          transform: `translateX(-${canvasShift}px)`,
         }}
       >
         <div className="relative">
